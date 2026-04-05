@@ -58,9 +58,8 @@ export default function GymOnboardingForm() {
         // 3. Activar la org en la sesión de Clerk
         await setActive({ organization: org.id })
 
-        // 4. Redirigir al dashboard
-        router.push("/dashboard")
-        router.refresh()
+        // 4. Hard redirect para que el middleware vea la sesión actualizada
+        window.location.href = "/dashboard"
 
       } catch (err) {
         console.error("[GymOnboardingForm]", err)
