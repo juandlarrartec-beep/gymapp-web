@@ -1,4 +1,5 @@
 import { MemberStatus } from "@prisma/client"
+import { clsx } from "clsx"
 import { requireGymScope, db } from "@/lib/db"
 
 async function getDashboardKPIs(gymId: string) {
@@ -112,12 +113,4 @@ function KPICard({
       </p>
     </div>
   )
-}
-
-function clsx(...args: (string | Record<string, boolean>)[]) {
-  return args
-    .flatMap((a) =>
-      typeof a === "string" ? [a] : Object.entries(a).filter(([, v]) => v).map(([k]) => k)
-    )
-    .join(" ")
 }

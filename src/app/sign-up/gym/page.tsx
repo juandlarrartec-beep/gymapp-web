@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import GymOnboardingForm from "./GymOnboardingForm"
@@ -7,9 +7,19 @@ export default async function GymOnboardingPage() {
   const { userId, orgId } = await auth()
   if (!userId) redirect("/sign-in")
 
-  // Si ya tiene org activa Y gym en DB → ir al dashboard
-  if (orgId) {
-    const gym = await db.gym.findUnique({ where: { clerkOrgId: orgId }, select: { id: true } })
+  // Obtener el orgId — puede estar en el JWT o hay que consultarlo a Clerk
+  let clerkOrgId = orgId
+  if (!clerkOrgId) {
+    const clerk = await clerkClient()
+    const memberships = await clerk.users.getOrganizationMembershipList({ userId })
+    if (memberships.data.length > 0 && memberships.data[0]) {
+      clerkOrgId = memberships.data[0].organization.id
+    }
+  }
+
+  // Si ya tiene org Y gym en DB → ir al dashboard
+  if (clerkOrgId) {
+    const gym = await db.gym.findUnique({ where: { clerkOrgId }, select: { id: true } })
     if (gym) redirect("/dashboard")
   }
 

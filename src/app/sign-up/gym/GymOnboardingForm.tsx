@@ -1,63 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { useOrganizationList } from "@clerk/nextjs"
-import { useRouter } from "next/navigation"
 import { saveGymToDb } from "./actions"
-
-// Hace polling al servidor hasta que el JWT de Clerk esté propagado
-// Esto garantiza que el servidor también reconoce el orgId antes de navegar
-function OrgReadyRedirect() {
-  const router = useRouter()
-  const [dots, setDots] = useState(".")
-
-  useEffect(() => {
-    // Animación de puntos suspensivos
-    const anim = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 500)
-    return () => clearInterval(anim)
-  }, [])
-
-  useEffect(() => {
-    let stopped = false
-
-    async function pollServerForOrg() {
-      // Espera inicial — dar tiempo a Clerk para emitir el nuevo JWT
-      await new Promise(r => setTimeout(r, 1000))
-
-      while (!stopped) {
-        try {
-          const res = await fetch("/api/me/gym", { cache: "no-store" })
-          // IMPORTANTE: solo navegar en status 200 exacto
-          // 202 = orgId todavía no propagado al JWT del servidor
-          if (res.status === 200) {
-            const data = await res.json() as { ready?: boolean }
-            if (data.ready === true) {
-              // Hard redirect — full page load con cookies actualizadas
-              window.location.href = "/dashboard"
-              return
-            }
-          }
-        } catch {
-          // Error de red — reintentar
-        }
-        await new Promise(r => setTimeout(r, 1500))
-      }
-    }
-
-    void pollServerForOrg()
-    return () => { stopped = true }
-  }, [router])
-
-  return (
-    <div className="text-center space-y-6 py-4">
-      <div className="text-5xl">🎉</div>
-      <h2 className="text-xl font-bold text-slate-900">¡Gimnasio creado!</h2>
-      <p className="text-slate-500 text-sm">
-        Preparando tu dashboard{dots}
-      </p>
-    </div>
-  )
-}
 
 type FormStatus = "idle" | "creating" | "success"
 
@@ -88,20 +33,18 @@ export default function GymOnboardingForm() {
 
     if (!name || name.trim().length < 2) { setError("El nombre debe tener al menos 2 caracteres"); return }
     if (!slug || !/^[a-z0-9-]+$/.test(slug)) { setError("Slug inválido"); return }
+    if (!createOrganization || !setActive) { setError("Error de inicialización. Recargá la página."); return }
 
-    if (!createOrganization || !setActive) {
-      setError("Error de inicialización. Recargá la página.")
-      return
-    }
-
-    // Capturar FormData ANTES de deshabilitar inputs
+    // Capturar FormData ANTES de cualquier estado asíncrono
     const formData = new FormData(form)
     setError(null)
     setStatus("creating")
 
     try {
+      // 1. Crear org en Clerk (cliente)
       const org = await createOrganization({ name })
 
+      // 2. Guardar gym en DB (servidor)
       const result = await saveGymToDb(formData, org.id)
       if (result?.error) {
         setError(result.error)
@@ -109,22 +52,19 @@ export default function GymOnboardingForm() {
         return
       }
 
-      // Activar org — Clerk actualiza el JWT en background
+      // 3. Activar org en la sesión de Clerk
       await setActive({ organization: org.id })
 
-      // OrgReadyRedirect observa useAuth() y navega cuando el JWT esté listo
+      // 4. Reload completo — page.tsx usa fallback de Clerk API para detectar la org
+      //    aunque el JWT no haya propagado todavía
       setStatus("success")
+      window.location.reload()
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(msg || "Error al crear el gimnasio")
       setStatus("idle")
     }
-  }
-
-  // Cuando el JWT de Clerk esté listo, OrgReadyRedirect redirige automáticamente
-  if (status === "success") {
-    return <OrgReadyRedirect />
   }
 
   return (
@@ -147,7 +87,7 @@ export default function GymOnboardingForm() {
           onChange={handleNameChange}
           placeholder="Ej: Fitness Center Norte"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          disabled={status === "creating"}
+          disabled={status !== "idle"}
         />
       </div>
 
@@ -165,7 +105,7 @@ export default function GymOnboardingForm() {
             pattern="^[a-z0-9-]+$"
             placeholder="fitness-center-norte"
             className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            disabled={status === "creating"}
+            disabled={status !== "idle"}
           />
         </div>
         <p className="text-xs text-slate-400 mt-1">Solo letras minúsculas, números y guiones</p>
@@ -178,7 +118,7 @@ export default function GymOnboardingForm() {
           required
           defaultValue="AR"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          disabled={status === "creating"}
+          disabled={status !== "idle"}
         >
           <option value="AR">Argentina (ARS)</option>
           <option value="CO">Colombia (COP)</option>
@@ -188,10 +128,10 @@ export default function GymOnboardingForm() {
 
       <button
         type="submit"
-        disabled={status === "creating"}
+        disabled={status !== "idle"}
         className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white rounded-xl font-semibold transition-colors"
       >
-        {status === "creating" ? "Creando gimnasio..." : "Crear gimnasio →"}
+        {status === "creating" ? "Creando gimnasio..." : status === "success" ? "Redirigiendo..." : "Crear gimnasio →"}
       </button>
     </form>
   )

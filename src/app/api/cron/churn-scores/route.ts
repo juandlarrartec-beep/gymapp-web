@@ -150,9 +150,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
           take: 5,
         })
         for (const pt of gymPushTokens) {
-          console.log(
-            `[Churn] Push al dueño del gym ${member.gymId}: socio ${member.id} pasó a HIGH risk (token: ${pt.token.slice(0, 20)}...)`
-          )
+          // TODO: enviar push al dueño del gym via Firebase Admin SDK
+          void pt
         }
       }
 

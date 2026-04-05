@@ -13,11 +13,9 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
 
   try {
     const result = await runSmartRetry()
-    console.log("[Cron] Smart retry completado:", result)
     return NextResponse.json({ data: result, error: null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido"
-    console.error("[Cron] Error en smart retry:", msg)
     return NextResponse.json({ data: null, error: msg }, { status: 500 })
   }
 }

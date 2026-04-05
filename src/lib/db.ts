@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client"
-import { auth } from "@clerk/nextjs/server"
+import { auth, clerkClient } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 
 const globalForPrisma = globalThis as unknown as {
@@ -14,7 +14,6 @@ export const db =
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db
 
-// Re-exportar tipos de Prisma
 export * from "@prisma/client"
 
 export function assertGymScope(filter: { gymId?: string | null }): asserts filter is { gymId: string } {
@@ -24,22 +23,30 @@ export function assertGymScope(filter: { gymId?: string | null }): asserts filte
 }
 
 export async function getGymId(): Promise<string> {
-  const { orgId } = await auth()
+  const { userId, orgId } = await auth()
+  if (!userId) redirect("/sign-in")
 
-  // Si no tiene org activa, redirigir a onboarding
-  if (!orgId) {
-    redirect("/sign-up/gym")
+  // Intentar con el orgId del JWT primero (camino rápido)
+  let clerkOrgId = orgId
+
+  // Fallback: el JWT puede estar desactualizado después de setActive (Clerk race condition)
+  // Consultar la API de Clerk directamente para obtener las memberships del usuario
+  if (!clerkOrgId) {
+    const clerk = await clerkClient()
+    const memberships = await clerk.users.getOrganizationMembershipList({ userId })
+    if (memberships.data.length > 0 && memberships.data[0]) {
+      clerkOrgId = memberships.data[0].organization.id
+    }
   }
 
+  if (!clerkOrgId) redirect("/sign-up/gym")
+
   const gym = await db.gym.findUnique({
-    where: { clerkOrgId: orgId },
+    where: { clerkOrgId },
     select: { id: true },
   })
 
-  // Si la org existe en Clerk pero no en nuestra DB, onboarding
-  if (!gym) {
-    redirect("/sign-up/gym")
-  }
+  if (!gym) redirect("/sign-up/gym")
 
   return gym.id
 }

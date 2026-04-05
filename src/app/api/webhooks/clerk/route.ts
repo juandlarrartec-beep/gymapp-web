@@ -30,7 +30,6 @@ type ClerkWebhookEvent = ClerkOrgCreatedEvent | ClerkOrgMembershipCreatedEvent
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{ processed: boolean }>>> {
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET
   if (!webhookSecret) {
-    console.error("[Clerk Webhook] CLERK_WEBHOOK_SECRET no configurado")
     return NextResponse.json({ data: null, error: "Webhook secret no configurado" }, { status: 500 })
   }
 
@@ -79,15 +78,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<{
           slug: finalSlug,
         },
       })
-      console.log(`[Clerk Webhook] Gym creado para org ${clerkOrgId}`)
     }
   }
 
   if (event.type === "organizationMembership.created") {
-    const { organization, public_user_data, role } = event.data
-    console.log(
-      `[Clerk Webhook] Membership creada: user ${public_user_data.user_id} → org ${organization.id} (${role})`
-    )
     // Aquí se podría sincronizar Trainer o Member si ya existe el registro
   }
 

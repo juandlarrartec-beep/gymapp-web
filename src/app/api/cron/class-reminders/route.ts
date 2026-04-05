@@ -48,10 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ApiResponse<un
       const { member } = booking
       for (const pushToken of member.pushTokens) {
         // En producción: enviar via Firebase Admin SDK
-        // Por ahora, loguear la intención
-        console.log(
-          `[Cron] Push reminder → ${member.firstName} (${pushToken.token.slice(0, 20)}...) para "${cls.name}" a las ${cls.startTime.toISOString()}`
-        )
+        void pushToken
         notificationsSent++
       }
     }
