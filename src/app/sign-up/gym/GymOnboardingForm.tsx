@@ -58,10 +58,11 @@ export default function GymOnboardingForm() {
 
       // 4. Esperar a que Clerk propague la sesión al cookie
       setStatus("redirecting")
-      await new Promise(r => setTimeout(r, 1500))
+      await new Promise(r => setTimeout(r, 2000))
 
-      // 5. Hard redirect
-      window.location.href = "/dashboard"
+      // 5. Recargar la misma página — page.tsx detecta el gym y redirige a /dashboard
+      // (esta página es pública, no pasa por el middleware auth check)
+      window.location.reload()
 
     } catch (err) {
       console.error("[GymOnboardingForm]", err)
