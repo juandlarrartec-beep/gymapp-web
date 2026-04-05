@@ -5,33 +5,50 @@ import { useOrganizationList, useAuth } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { saveGymToDb } from "./actions"
 
-// Espera a que Clerk confirme el nuevo orgId en el JWT antes de navegar
+// Hace polling al servidor hasta que el JWT de Clerk esté propagado
+// Esto garantiza que el servidor también reconoce el orgId antes de navegar
 function OrgReadyRedirect() {
-  const { orgId } = useAuth()
   const router = useRouter()
+  const [dots, setDots] = useState(".")
 
   useEffect(() => {
-    if (orgId) {
-      router.replace("/dashboard")
+    // Animación de puntos suspensivos
+    const anim = setInterval(() => setDots(d => d.length >= 3 ? "." : d + "."), 500)
+    return () => clearInterval(anim)
+  }, [])
+
+  useEffect(() => {
+    let stopped = false
+
+    async function pollServerForOrg() {
+      // Espera inicial — dar tiempo a Clerk para emitir el nuevo JWT
+      await new Promise(r => setTimeout(r, 1000))
+
+      while (!stopped) {
+        try {
+          const res = await fetch("/api/me/gym", { cache: "no-store" })
+          if (res.ok) {
+            // El servidor confirma el gym — navegación segura
+            router.replace("/dashboard")
+            return
+          }
+        } catch {
+          // Error de red — reintentar
+        }
+        await new Promise(r => setTimeout(r, 1500))
+      }
     }
-  }, [orgId, router])
+
+    void pollServerForOrg()
+    return () => { stopped = true }
+  }, [router])
 
   return (
     <div className="text-center space-y-6 py-4">
       <div className="text-5xl">🎉</div>
       <h2 className="text-xl font-bold text-slate-900">¡Gimnasio creado!</h2>
       <p className="text-slate-500 text-sm">
-        <span className="inline-block animate-spin mr-2">⏳</span>
-        Preparando tu dashboard...
-      </p>
-      <p className="text-xs text-slate-400">
-        Si esto tarda más de 10 segundos,{" "}
-        <button
-          onClick={() => router.replace("/dashboard")}
-          className="underline text-indigo-500"
-        >
-          hacé click acá
-        </button>
+        Preparando tu dashboard{dots}
       </p>
     </div>
   )
