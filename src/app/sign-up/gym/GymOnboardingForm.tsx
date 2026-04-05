@@ -4,9 +4,11 @@ import { useRef, useState } from "react"
 import { useOrganizationList } from "@clerk/nextjs"
 import { saveGymToDb } from "./actions"
 
+type FormStatus = "idle" | "creating" | "success"
+
 export default function GymOnboardingForm() {
   const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState<"idle" | "creating" | "redirecting">("idle")
+  const [status, setStatus] = useState<FormStatus>("idle")
   const slugRef = useRef<HTMLInputElement>(null)
   const nameRef = useRef<HTMLInputElement>(null)
   const { createOrganization, setActive } = useOrganizationList()
@@ -30,52 +32,61 @@ export default function GymOnboardingForm() {
     const slug = slugRef.current?.value ?? ""
 
     if (!name || name.trim().length < 2) { setError("El nombre debe tener al menos 2 caracteres"); return }
-    if (!slug || !/^[a-z0-9-]+$/.test(slug)) { setError("Slug inválido — solo letras minúsculas, números y guiones"); return }
+    if (!slug || !/^[a-z0-9-]+$/.test(slug)) { setError("Slug inválido"); return }
 
     if (!createOrganization || !setActive) {
       setError("Error de inicialización. Recargá la página.")
       return
     }
 
-    setError(null)
-
-    // Capturar FormData ANTES de deshabilitar los inputs
+    // Capturar FormData ANTES de deshabilitar inputs
     const formData = new FormData(form)
+    setError(null)
     setStatus("creating")
 
     try {
-      // 1. Crear la org en Clerk desde el cliente
       const org = await createOrganization({ name })
       const result = await saveGymToDb(formData, org.id)
+
       if (result?.error) {
         setError(result.error)
         setStatus("idle")
         return
       }
 
-      // 3. Activar la org en la sesión de Clerk
+      // Activar org en sesión (no dependemos del timing para redirect)
       await setActive({ organization: org.id })
-
-      // 4. Esperar a que Clerk propague la sesión al cookie
-      setStatus("redirecting")
-      await new Promise(r => setTimeout(r, 2000))
-
-      // 5. Recargar la misma página — page.tsx detecta el gym y redirige a /dashboard
-      // (esta página es pública, no pasa por el middleware auth check)
-      window.location.reload()
+      setStatus("success")
 
     } catch (err) {
-      console.error("[GymOnboardingForm]", err)
-      setError(err instanceof Error ? err.message : "Error al crear el gimnasio")
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg || "Error al crear el gimnasio")
       setStatus("idle")
     }
   }
 
-  const buttonLabel = status === "creating"
-    ? "Creando gimnasio..."
-    : status === "redirecting"
-      ? "Redirigiendo al dashboard..."
-      : "Crear gimnasio →"
+  // Pantalla de éxito
+  if (status === "success") {
+    return (
+      <div className="text-center space-y-6 py-4">
+        <div className="text-5xl">🎉</div>
+        <h2 className="text-xl font-bold text-slate-900">¡Gimnasio creado!</h2>
+        <p className="text-slate-500">Tu gimnasio está listo. Accedé al dashboard para empezar a configurarlo.</p>
+        <a
+          href="/dashboard"
+          className="inline-block w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors text-center"
+        >
+          Ir al dashboard →
+        </a>
+        <p className="text-xs text-slate-400">
+          Si el dashboard no carga, esperá unos segundos y{" "}
+          <button onClick={() => window.location.href = "/dashboard"} className="underline text-indigo-500">
+            hacé click acá
+          </button>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -97,7 +108,7 @@ export default function GymOnboardingForm() {
           onChange={handleNameChange}
           placeholder="Ej: Fitness Center Norte"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          disabled={status !== "idle"}
+          disabled={status === "creating"}
         />
       </div>
 
@@ -115,7 +126,7 @@ export default function GymOnboardingForm() {
             pattern="^[a-z0-9-]+$"
             placeholder="fitness-center-norte"
             className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            disabled={status !== "idle"}
+            disabled={status === "creating"}
           />
         </div>
         <p className="text-xs text-slate-400 mt-1">Solo letras minúsculas, números y guiones</p>
@@ -128,7 +139,7 @@ export default function GymOnboardingForm() {
           required
           defaultValue="AR"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          disabled={status !== "idle"}
+          disabled={status === "creating"}
         >
           <option value="AR">Argentina (ARS)</option>
           <option value="CO">Colombia (COP)</option>
@@ -138,10 +149,10 @@ export default function GymOnboardingForm() {
 
       <button
         type="submit"
-        disabled={status !== "idle"}
+        disabled={status === "creating"}
         className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white rounded-xl font-semibold transition-colors"
       >
-        {buttonLabel}
+        {status === "creating" ? "Creando gimnasio..." : "Crear gimnasio →"}
       </button>
     </form>
   )
