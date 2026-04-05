@@ -2,7 +2,6 @@
 
 import { useRef, useState, useTransition } from "react"
 import { useOrganizationList } from "@clerk/nextjs"
-import { useRouter } from "next/navigation"
 import { saveGymToDb } from "./actions"
 
 export default function GymOnboardingForm() {
@@ -10,7 +9,6 @@ export default function GymOnboardingForm() {
   const [isPending, startTransition] = useTransition()
   const slugRef = useRef<HTMLInputElement>(null)
   const { createOrganization, setActive } = useOrganizationList()
-  const router = useRouter()
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     const slug = e.target.value
