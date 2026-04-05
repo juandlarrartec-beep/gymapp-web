@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useOrganizationList, useAuth } from "@clerk/nextjs"
+import { useOrganizationList } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { saveGymToDb } from "./actions"
 
