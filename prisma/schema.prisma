@@ -1,0 +1,573 @@
+// GymApp — Schema Multi-Tenant
+// Regla crítica: TODA query debe filtrar por gymId
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Requerido por Supabase con pgbouncer
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum GymPlan {
+  FREE      // hasta 30 socios
+  STARTER   // hasta 200 socios, $9/mes
+  GROWTH    // hasta 750 socios, $19/mes
+  PRO       // ilimitados, $39/mes
+}
+
+enum MemberStatus {
+  ACTIVE
+  SUSPENDED   // pago fallido — acceso bloqueado
+  FROZEN      // congelado voluntariamente (vacaciones, lesión)
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  MERCADOPAGO
+  PAYPAL
+}
+
+enum AccessMethod {
+  QR
+  NFC
+  MANUAL
+}
+
+enum ChurnRisk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ClassStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+enum RoutineDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ─────────────────────────────────────────────
+// GYM (Tenant raíz — todo se filtra por gymId)
+// ─────────────────────────────────────────────
+
+model Gym {
+  id        String  @id @default(cuid())
+  slug      String  @unique // usado en subdominios: {slug}.gymapp.com
+  name      String
+  plan      GymPlan @default(FREE)
+  clerkOrgId String? @unique // Clerk organization ID
+
+  // Branding (white-label — plan Pro)
+  logoUrl      String?
+  primaryColor String? @default("#6366f1")
+  appName      String? // nombre de la app para white-label
+
+  // Datos del negocio
+  country      String  @default("AR") // AR | CO | MX
+  currency     String  @default("ARS")
+  timezone     String  @default("America/Argentina/Buenos_Aires")
+  address      String?
+  phone        String?
+  email        String?
+
+  // Configuración de pagos
+  stripeAccountId       String?
+  mercadopagoAccountId  String?
+  paymentProvider       PaymentProvider @default(MERCADOPAGO)
+
+  // Configuración Instagram
+  instagramHandle     String?
+  instagramProgramEnabled Boolean @default(false)
+  instagramDiscount1  Int @default(5)  // % por 1 publicación
+  instagramDiscount3  Int @default(10) // % por 3 publicaciones
+  instagramDiscount5  Int @default(15) // % por 5+ publicaciones
+
+  // Config NFC (plan Pro)
+  nfcEnabled   Boolean @default(false)
+  nfcReaderId  String? // ID del lector VTAP/ELATEC
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  members          Member[]
+  trainers         Trainer[]
+  membershipPlans  MembershipPlan[]
+  payments         Payment[]
+  accessLogs       AccessLog[]
+  routines         Routine[]
+  exercises        Exercise[]
+  classSchedules   ClassSchedule[]
+  churnScores      ChurnScore[]
+  pushTokens       PushToken[]
+  gymSeats         GymSeat[]
+
+  @@index([slug])
+  @@index([clerkOrgId])
+}
+
+// ─────────────────────────────────────────────
+// SOCIOS
+// ─────────────────────────────────────────────
+
+model Member {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  // Identidad
+  clerkUserId String? @unique // vinculado con Clerk
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  avatarUrl   String?
+  birthDate   DateTime?
+
+  // Membresía
+  status            MemberStatus @default(ACTIVE)
+  membershipPlanId  String
+  membershipPlan    MembershipPlan @relation(fields: [membershipPlanId], references: [id])
+  startDate         DateTime @default(now())
+  nextPaymentDate   DateTime
+  frozenUntil       DateTime?
+  cancellationDate  DateTime?
+
+  // Pagos
+  stripeCustomerId        String?
+  mercadopagoCustomerId   String?
+  paymentMethodId         String? // token del método de pago registrado
+  paymentMethodLast4      String? // últimos 4 dígitos para mostrar en UI
+
+  // NFC / Wallet (plan Pro del gym)
+  walletPassId        String? // ID del pass generado
+  walletPassUpdatedAt DateTime?
+
+  // QR dinámico — el token se genera server-side, no se persiste
+  // Se calcula: HMAC(gymId + memberId + Math.floor(Date.now() / 60000))
+
+  // Descuentos Instagram
+  instagramHandle        String?
+  instagramPostCount     Int @default(0)
+  instagramDiscountPct   Int @default(0) // 0-15%
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  payments       Payment[]
+  accessLogs     AccessLog[]
+  routineAssignments RoutineAssignment[]
+  classBookings  ClassBooking[]
+  churnScore     ChurnScore?
+  pushTokens     PushToken[]
+  posts          Post[]
+
+  @@unique([gymId, email])
+  @@index([gymId])
+  @@index([gymId, status])
+  @@index([gymId, nextPaymentDate])
+  @@index([clerkUserId])
+}
+
+// ─────────────────────────────────────────────
+// TRAINERS / STAFF
+// ─────────────────────────────────────────────
+
+model Trainer {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  clerkUserId String? @unique
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  avatarUrl   String?
+  specialty   String? // "Musculación", "Funcional", "Pilates", etc.
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routines       Routine[]
+  classSchedules ClassSchedule[]
+
+  @@unique([gymId, email])
+  @@index([gymId])
+}
+
+// ─────────────────────────────────────────────
+// PLANES DE MEMBRESÍA
+// ─────────────────────────────────────────────
+
+model MembershipPlan {
+  id    String @id @default(cuid())
+  gymId String
+  gym   Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  name        String  // "Mensual Básico", "Trimestral Premium", etc.
+  description String?
+  priceAmount Int     // en centavos (ej: 1500 = $15.00)
+  currency    String  @default("ARS")
+  durationDays Int    @default(30)
+  isActive    Boolean @default(true)
+
+  // Config de acceso
+  accessDays  String[] // ["MONDAY","WEDNESDAY","FRIDAY"] — vacío = todos los días
+  accessHourStart Int? // hora de inicio permitida (0-23)
+  accessHourEnd   Int? // hora de fin permitida (0-23)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members Member[]
+
+  @@index([gymId])
+  @@index([gymId, isActive])
+}
+
+// ─────────────────────────────────────────────
+// PAGOS
+// ─────────────────────────────────────────────
+
+model Payment {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id])
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id])
+
+  amount          Int             // en centavos
+  currency        String          @default("ARS")
+  status          PaymentStatus   @default(PENDING)
+  provider        PaymentProvider
+  providerPaymentId String?       // ID del pago en Stripe/MercadoPago
+  providerChargeId  String?
+
+  // Smart retry
+  attemptNumber   Int       @default(1) // 1-3
+  nextRetryAt     DateTime?
+  failureReason   String?
+
+  // Período que cubre este pago
+  periodStart DateTime
+  periodEnd   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([gymId, memberId])
+  @@index([gymId, status])
+  @@index([nextRetryAt]) // para el cron de smart retry
+}
+
+// ─────────────────────────────────────────────
+// ACCESS LOG (INMUTABLE — solo INSERT, nunca UPDATE/DELETE)
+// ─────────────────────────────────────────────
+
+model AccessLog {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id])
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id])
+
+  method    AccessMethod
+  success   Boolean
+  failReason String?     // "MEMBERSHIP_SUSPENDED" | "INVALID_TOKEN" | "EXPIRED_PASS"
+  ipAddress String?
+  deviceInfo String?     // info del lector NFC o dispositivo QR
+
+  // No hay updatedAt — este modelo es append-only
+  timestamp DateTime @default(now())
+
+  @@index([gymId])
+  @@index([gymId, memberId])
+  @@index([gymId, timestamp])
+  @@index([memberId, timestamp]) // para calcular días sin asistir
+}
+
+// ─────────────────────────────────────────────
+// RUTINAS Y EJERCICIOS
+// ─────────────────────────────────────────────
+
+model Exercise {
+  id    String @id @default(cuid())
+  gymId String? // null = ejercicio global de la biblioteca pública
+  gym   Gym?    @relation(fields: [gymId], references: [id])
+
+  name         String
+  description  String?
+  muscleGroups String[]  // ["CHEST", "TRICEPS"]
+  videoUrl     String?
+  thumbnailUrl String?
+  isPublic     Boolean @default(false) // true = visible en biblioteca global
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  routineExercises RoutineExercise[]
+
+  @@index([gymId])
+}
+
+model Routine {
+  id        String @id @default(cuid())
+  gymId     String
+  gym       Gym    @relation(fields: [gymId], references: [id])
+  trainerId String
+  trainer   Trainer @relation(fields: [trainerId], references: [id])
+
+  name        String
+  description String?
+  day         RoutineDay? // día de la semana al que corresponde (opcional)
+  isTemplate  Boolean @default(false) // rutinas plantilla reutilizables
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises   RoutineExercise[]
+  assignments RoutineAssignment[]
+
+  @@index([gymId])
+  @@index([gymId, trainerId])
+}
+
+model RoutineExercise {
+  id         String @id @default(cuid())
+  routineId  String
+  routine    Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+
+  order       Int     // posición en la rutina
+  sets        Int
+  reps        Int?    // null si es por tiempo
+  durationSec Int?    // segundos si es por tiempo
+  restSec     Int     @default(60)
+  weightKg    Float?  // peso sugerido en kg
+  notes       String?
+
+  @@unique([routineId, order])
+  @@index([routineId])
+}
+
+model RoutineAssignment {
+  id       String @id @default(cuid())
+  gymId    String
+  memberId String
+  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  routineId String
+  routine  Routine @relation(fields: [routineId], references: [id])
+
+  assignedAt  DateTime @default(now())
+  validUntil  DateTime?
+  isActive    Boolean  @default(true)
+  notes       String?
+
+  @@index([gymId, memberId])
+  @@index([memberId, isActive])
+}
+
+// ─────────────────────────────────────────────
+// BOOKING DE CLASES
+// ─────────────────────────────────────────────
+
+model ClassSchedule {
+  id        String @id @default(cuid())
+  gymId     String
+  gym       Gym    @relation(fields: [gymId], references: [id])
+  trainerId String?
+  trainer   Trainer? @relation(fields: [trainerId], references: [id])
+
+  name        String  // "Spinning", "Yoga Flow", "Funcional"
+  description String?
+  maxCapacity Int     @default(20)
+  durationMin Int     @default(60)
+  location    String? // "Sala A", "Piscina", etc.
+
+  // Recurrencia
+  startTime   DateTime // fecha y hora exacta de esta clase
+  status      ClassStatus @default(SCHEDULED)
+  cancelReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings ClassBooking[]
+
+  @@index([gymId])
+  @@index([gymId, startTime])
+  @@index([gymId, status])
+}
+
+model ClassBooking {
+  id              String @id @default(cuid())
+  gymId           String
+  classScheduleId String
+  classSchedule   ClassSchedule @relation(fields: [classScheduleId], references: [id], onDelete: Cascade)
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [id])
+
+  status    BookingStatus @default(CONFIRMED)
+  bookedAt  DateTime @default(now())
+  cancelledAt DateTime?
+  attendedAt  DateTime?
+
+  @@unique([classScheduleId, memberId])
+  @@index([gymId])
+  @@index([memberId])
+  @@index([classScheduleId])
+}
+
+// ─────────────────────────────────────────────
+// IA — CHURN SCORING
+// ─────────────────────────────────────────────
+
+model ChurnScore {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id])
+  memberId String @unique
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  // Factores del score
+  daysSinceLastVisit      Int @default(0)
+  attendanceDropRate      Float @default(0) // % de caída vs mes anterior
+  paymentFailCount        Int @default(0)   // pagos fallidos en los últimos 90 días
+  appInactiveDays         Int @default(0)   // días sin abrir la app
+  classNoShowCount        Int @default(0)   // clases reservadas pero no asistidas
+  membershipAgeDays       Int @default(0)   // antigüedad del socio
+
+  // Resultado
+  riskLevel   ChurnRisk @default(LOW)
+  riskScore   Float     @default(0) // 0-100
+
+  // Acción sugerida al dueño
+  suggestedAction String? // "Enviar oferta", "Llamar", "Freeze gratis"
+
+  calculatedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([gymId, riskLevel])
+}
+
+// ─────────────────────────────────────────────
+// PUSH TOKENS (Firebase Cloud Messaging)
+// ─────────────────────────────────────────────
+
+model PushToken {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id])
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  token    String @unique
+  platform String // "ios" | "android"
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([memberId])
+}
+
+// ─────────────────────────────────────────────
+// MULTI-SEDE (Sprint 3)
+// ─────────────────────────────────────────────
+
+model GymSeat {
+  id       String @id @default(cuid())
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id])
+  name     String // "Sede Norte", "Sede Centro"
+  address  String?
+  isMain   Boolean @default(false)
+  nfcReaderId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([gymId])
+}
+
+// ─────────────────────────────────────────────
+// RED SOCIAL INTERNA (Fase 12)
+// ─────────────────────────────────────────────
+
+model Post {
+  id        String   @id @default(cuid())
+  gymId     String
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  imageUrl  String?
+  caption   String?
+  likesCount Int     @default(0)
+  commentsCount Int  @default(0)
+  createdAt DateTime @default(now())
+
+  likes    PostLike[]
+  comments PostComment[]
+
+  @@index([gymId])
+  @@index([gymId, createdAt])
+}
+
+model PostLike {
+  id       String @id @default(cuid())
+  postId   String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  memberId String
+  createdAt DateTime @default(now())
+
+  @@unique([postId, memberId])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  memberId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}

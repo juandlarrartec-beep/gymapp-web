@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/cron/retry-payments", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/churn-scores", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/class-reminders", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/class-noshow", "schedule": "0 23 * * *" }
+  ]
+}
