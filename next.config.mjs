@@ -6,9 +6,7 @@ const nextConfig = {
       { hostname: "img.clerk.com" },
     ],
   },
-  outputFileTracingExcludes: {
-    "*": ["./export-detail.json"],
-  },
+  serverExternalPackages: ["passkit-generator", "google-auth-library"],
 }
 
 export default nextConfig
