@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
 import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -24,14 +25,22 @@ export function assertGymScope(filter: { gymId?: string | null }): asserts filte
 
 export async function getGymId(): Promise<string> {
   const { orgId } = await auth()
-  if (!orgId) throw new Error("No hay organización activa en la sesión")
+
+  // Si no tiene org activa, redirigir a onboarding
+  if (!orgId) {
+    redirect("/sign-up/gym")
+  }
 
   const gym = await db.gym.findUnique({
     where: { clerkOrgId: orgId },
     select: { id: true },
   })
 
-  if (!gym) throw new Error(`Gym no encontrado para orgId: ${orgId}`)
+  // Si la org existe en Clerk pero no en nuestra DB, onboarding
+  if (!gym) {
+    redirect("/sign-up/gym")
+  }
+
   return gym.id
 }
 

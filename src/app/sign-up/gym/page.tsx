@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
 import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import GymOnboardingForm from "./GymOnboardingForm"
 
@@ -7,6 +7,7 @@ export default async function GymOnboardingPage() {
   const { userId, orgId } = await auth()
   if (!userId) redirect("/sign-in")
 
+  // Si ya tiene org activa Y gym en DB → ir al dashboard
   if (orgId) {
     const gym = await db.gym.findUnique({ where: { clerkOrgId: orgId }, select: { id: true } })
     if (gym) redirect("/dashboard")
