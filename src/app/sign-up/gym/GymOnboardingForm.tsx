@@ -38,14 +38,14 @@ export default function GymOnboardingForm() {
     }
 
     setError(null)
+
+    // Capturar FormData ANTES de deshabilitar los inputs
+    const formData = new FormData(form)
     setStatus("creating")
 
     try {
       // 1. Crear la org en Clerk desde el cliente
       const org = await createOrganization({ name })
-
-      // 2. Guardar en nuestra DB
-      const formData = new FormData(form)
       const result = await saveGymToDb(formData, org.id)
       if (result?.error) {
         setError(result.error)
