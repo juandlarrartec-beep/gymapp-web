@@ -1,13 +1,14 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useRef, useState } from "react"
 import { useOrganizationList } from "@clerk/nextjs"
 import { saveGymToDb } from "./actions"
 
 export default function GymOnboardingForm() {
   const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [status, setStatus] = useState<"idle" | "creating" | "redirecting">("idle")
   const slugRef = useRef<HTMLInputElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
   const { createOrganization, setActive } = useOrganizationList()
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -22,50 +23,58 @@ export default function GymOnboardingForm() {
     if (slugRef.current) slugRef.current.value = slug
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = e.currentTarget
-    const name = (form.elements.namedItem("name") as HTMLInputElement).value
-    const slug = (form.elements.namedItem("slug") as HTMLInputElement).value
+    const name = nameRef.current?.value ?? ""
+    const slug = slugRef.current?.value ?? ""
 
     if (!name || name.trim().length < 2) { setError("El nombre debe tener al menos 2 caracteres"); return }
     if (!slug || !/^[a-z0-9-]+$/.test(slug)) { setError("Slug inválido — solo letras minúsculas, números y guiones"); return }
 
+    if (!createOrganization || !setActive) {
+      setError("Error de inicialización. Recargá la página.")
+      return
+    }
+
     setError(null)
+    setStatus("creating")
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    startTransition(() => {
-      void (async () => {
-      try {
-        if (!createOrganization || !setActive) {
-          setError("Error de inicialización. Recargá la página.")
-          return
-        }
+    try {
+      // 1. Crear la org en Clerk desde el cliente
+      const org = await createOrganization({ name })
 
-        // 1. Crear la org en Clerk desde el cliente
-        const org = await createOrganization({ name })
-
-        // 2. Guardar en nuestra DB
-        const formData = new FormData(form)
-        const result = await saveGymToDb(formData, org.id)
-        if (result?.error) {
-          setError(result.error)
-          return
-        }
-
-        // 3. Activar la org en la sesión de Clerk
-        await setActive({ organization: org.id })
-
-        // 4. Hard redirect para que el middleware vea la sesión actualizada
-        window.location.href = "/dashboard"
-
-      } catch (err) {
-        console.error("[GymOnboardingForm]", err)
-        setError(err instanceof Error ? err.message : "Error al crear el gimnasio")
+      // 2. Guardar en nuestra DB
+      const formData = new FormData(form)
+      const result = await saveGymToDb(formData, org.id)
+      if (result?.error) {
+        setError(result.error)
+        setStatus("idle")
+        return
       }
-      })()
-    })
+
+      // 3. Activar la org en la sesión de Clerk
+      await setActive({ organization: org.id })
+
+      // 4. Esperar a que Clerk propague la sesión al cookie
+      setStatus("redirecting")
+      await new Promise(r => setTimeout(r, 1500))
+
+      // 5. Hard redirect
+      window.location.href = "/dashboard"
+
+    } catch (err) {
+      console.error("[GymOnboardingForm]", err)
+      setError(err instanceof Error ? err.message : "Error al crear el gimnasio")
+      setStatus("idle")
+    }
   }
+
+  const buttonLabel = status === "creating"
+    ? "Creando gimnasio..."
+    : status === "redirecting"
+      ? "Redirigiendo al dashboard..."
+      : "Crear gimnasio →"
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -80,12 +89,14 @@ export default function GymOnboardingForm() {
           Nombre del gimnasio
         </label>
         <input
+          ref={nameRef}
           name="name"
           type="text"
           required
           onChange={handleNameChange}
           placeholder="Ej: Fitness Center Norte"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          disabled={status !== "idle"}
         />
       </div>
 
@@ -103,6 +114,7 @@ export default function GymOnboardingForm() {
             pattern="^[a-z0-9-]+$"
             placeholder="fitness-center-norte"
             className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            disabled={status !== "idle"}
           />
         </div>
         <p className="text-xs text-slate-400 mt-1">Solo letras minúsculas, números y guiones</p>
@@ -115,6 +127,7 @@ export default function GymOnboardingForm() {
           required
           defaultValue="AR"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          disabled={status !== "idle"}
         >
           <option value="AR">Argentina (ARS)</option>
           <option value="CO">Colombia (COP)</option>
@@ -124,10 +137,10 @@ export default function GymOnboardingForm() {
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={status !== "idle"}
         className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white rounded-xl font-semibold transition-colors"
       >
-        {isPending ? "Creando gimnasio..." : "Crear gimnasio →"}
+        {buttonLabel}
       </button>
     </form>
   )
