@@ -27,10 +27,15 @@ function OrgReadyRedirect() {
       while (!stopped) {
         try {
           const res = await fetch("/api/me/gym", { cache: "no-store" })
-          if (res.ok) {
-            // El servidor confirma el gym — navegación segura
-            router.replace("/dashboard")
-            return
+          // IMPORTANTE: solo navegar en status 200 exacto
+          // 202 = orgId todavía no propagado al JWT del servidor
+          if (res.status === 200) {
+            const data = await res.json() as { ready?: boolean }
+            if (data.ready === true) {
+              // Hard redirect — full page load con cookies actualizadas
+              window.location.href = "/dashboard"
+              return
+            }
           }
         } catch {
           // Error de red — reintentar
