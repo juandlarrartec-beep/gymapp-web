@@ -1,8 +1,7 @@
 import { MemberStatus } from "@prisma/client"
-import { requireGymScope } from "@/lib/db"
+import { requireGymScope, db } from "@/lib/db"
 
 async function getDashboardKPIs(gymId: string) {
-  const { db } = await requireGymScope()
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)

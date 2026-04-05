@@ -1,8 +1,41 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { useOrganizationList } from "@clerk/nextjs"
+import { useEffect, useRef, useState } from "react"
+import { useOrganizationList, useAuth } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 import { saveGymToDb } from "./actions"
+
+// Espera a que Clerk confirme el nuevo orgId en el JWT antes de navegar
+function OrgReadyRedirect() {
+  const { orgId } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (orgId) {
+      router.replace("/dashboard")
+    }
+  }, [orgId, router])
+
+  return (
+    <div className="text-center space-y-6 py-4">
+      <div className="text-5xl">🎉</div>
+      <h2 className="text-xl font-bold text-slate-900">¡Gimnasio creado!</h2>
+      <p className="text-slate-500 text-sm">
+        <span className="inline-block animate-spin mr-2">⏳</span>
+        Preparando tu dashboard...
+      </p>
+      <p className="text-xs text-slate-400">
+        Si esto tarda más de 10 segundos,{" "}
+        <button
+          onClick={() => router.replace("/dashboard")}
+          className="underline text-indigo-500"
+        >
+          hacé click acá
+        </button>
+      </p>
+    </div>
+  )
+}
 
 type FormStatus = "idle" | "creating" | "success"
 
@@ -46,16 +79,18 @@ export default function GymOnboardingForm() {
 
     try {
       const org = await createOrganization({ name })
-      const result = await saveGymToDb(formData, org.id)
 
+      const result = await saveGymToDb(formData, org.id)
       if (result?.error) {
         setError(result.error)
         setStatus("idle")
         return
       }
 
-      // Activar org en sesión (no dependemos del timing para redirect)
+      // Activar org — Clerk actualiza el JWT en background
       await setActive({ organization: org.id })
+
+      // OrgReadyRedirect observa useAuth() y navega cuando el JWT esté listo
       setStatus("success")
 
     } catch (err) {
@@ -65,27 +100,9 @@ export default function GymOnboardingForm() {
     }
   }
 
-  // Pantalla de éxito
+  // Cuando el JWT de Clerk esté listo, OrgReadyRedirect redirige automáticamente
   if (status === "success") {
-    return (
-      <div className="text-center space-y-6 py-4">
-        <div className="text-5xl">🎉</div>
-        <h2 className="text-xl font-bold text-slate-900">¡Gimnasio creado!</h2>
-        <p className="text-slate-500">Tu gimnasio está listo. Accedé al dashboard para empezar a configurarlo.</p>
-        <a
-          href="/dashboard"
-          className="inline-block w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors text-center"
-        >
-          Ir al dashboard →
-        </a>
-        <p className="text-xs text-slate-400">
-          Si el dashboard no carga, esperá unos segundos y{" "}
-          <button onClick={() => window.location.href = "/dashboard"} className="underline text-indigo-500">
-            hacé click acá
-          </button>
-        </p>
-      </div>
-    )
+    return <OrgReadyRedirect />
   }
 
   return (
