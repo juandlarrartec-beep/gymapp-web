@@ -6,6 +6,9 @@ const nextConfig = {
       { hostname: "img.clerk.com" },
     ],
   },
+  outputFileTracingExcludes: {
+    "*": ["./export-detail.json"],
+  },
 }
 
 export default nextConfig
