@@ -7,20 +7,22 @@ import { MembersTable } from "@/components/members/MembersTable"
 export default async function MembersPage() {
   const { gymId } = await requireGymScope()
 
-  const members = await db.member.findMany({
-    where: { gymId },
-    include: {
-      membershipPlan: { select: { name: true, priceAmount: true, currency: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  })
+  const [members, plans] = await Promise.all([
+    db.member.findMany({
+      where: { gymId },
+      include: {
+        membershipPlan: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    db.membershipPlan.findMany({
+      where: { gymId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ])
 
-  const counts = {
-    total: members.length,
-    active: members.filter((m) => m.status === MemberStatus.ACTIVE).length,
-    suspended: members.filter((m) => m.status === MemberStatus.SUSPENDED).length,
-  }
+  const totalActive = members.filter((m) => m.status === MemberStatus.ACTIVE).length
 
   return (
     <div className="p-8">
@@ -28,7 +30,7 @@ export default async function MembersPage() {
         <div>
           <h1 className="text-2xl font-bold">Socios</h1>
           <p className="text-sm text-slate-400 mt-1">
-            {counts.active} activos · {counts.suspended} suspendidos · {counts.total} total
+            {members.length} total · {totalActive} activos
           </p>
         </div>
         <Link
@@ -39,7 +41,7 @@ export default async function MembersPage() {
         </Link>
       </div>
 
-      <MembersTable members={members} gymId={gymId} />
+      <MembersTable members={members} gymId={gymId} plans={plans} />
     </div>
   )
 }
