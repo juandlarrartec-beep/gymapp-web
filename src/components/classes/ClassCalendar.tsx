@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { format, addDays, startOfWeek, isSameDay } from "date-fns"
 import { es } from "date-fns/locale"
+import Link from "next/link"
 
 interface ClassEvent {
   id: string
@@ -82,10 +83,11 @@ export function ClassCalendar({ classes, onClassClick }: ClassCalendarProps) {
                   const isFull = confirmedCount >= cls.maxCapacity
 
                   return (
-                    <div
+                    <Link
                       key={cls.id}
+                      href={`/dashboard/classes/${cls.id}`}
                       onClick={() => onClassClick?.(cls.id)}
-                      className={`border rounded-lg px-2 py-1.5 text-xs cursor-pointer hover:shadow-sm transition-shadow ${statusClass[cls.status] ?? statusClass.SCHEDULED}`}
+                      className={`block border rounded-lg px-2 py-1.5 text-xs cursor-pointer hover:shadow-sm transition-shadow ${statusClass[cls.status] ?? statusClass.SCHEDULED}`}
                     >
                       <p className="font-medium truncate">{cls.name}</p>
                       <p className="opacity-70">{format(new Date(cls.startTime), "HH:mm")}</p>
@@ -93,7 +95,7 @@ export function ClassCalendar({ classes, onClassClick }: ClassCalendarProps) {
                         {confirmedCount}/{cls.maxCapacity}
                         {isFull ? " LLENO" : ""}
                       </p>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>

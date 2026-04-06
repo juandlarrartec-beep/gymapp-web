@@ -1,6 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useActionState, useEffect, useRef } from "react"
+import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
+import { createClassAction } from "@/app/(dashboard)/dashboard/classes/actions"
+import type { CreateClassState } from "@/app/(dashboard)/dashboard/classes/actions"
 
 interface Trainer {
   id: string
@@ -14,53 +18,24 @@ interface ClassFormProps {
   onSuccess?: () => void
 }
 
-export function ClassForm({ gymId, trainers, onSuccess }: ClassFormProps) {
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+const initialState: CreateClassState = { success: false, error: null as string | null }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
+export function ClassForm({ trainers, onSuccess }: ClassFormProps) {
+  const [state, formAction, pending] = useActionState(createClassAction, initialState)
+  const formRef = useRef<HTMLFormElement>(null)
 
-    const formData = new FormData(e.currentTarget)
-    const body = {
-      name: formData.get("name") as string,
-      description: formData.get("description") as string | null,
-      trainerId: formData.get("trainerId") as string || null,
-      maxCapacity: parseInt(formData.get("maxCapacity") as string),
-      durationMin: parseInt(formData.get("durationMin") as string),
-      location: formData.get("location") as string | null,
-      startTime: formData.get("startTime") as string,
+  useEffect(() => {
+    if (state.success) {
+      toast.success("Clase creada correctamente")
+      formRef.current?.reset()
+      onSuccess?.()
+    } else if (state.error) {
+      toast.error(state.error)
     }
-
-    try {
-      const res = await fetch(`/api/gyms/${gymId}/classes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      const json = (await res.json()) as { error: string | null }
-      if (!res.ok || json.error) {
-        setError(json.error ?? "Error al crear la clase")
-      } else {
-        onSuccess?.()
-      }
-    } catch {
-      setError("Error de conexión")
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  }, [state, onSuccess])
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la clase</label>
         <input
@@ -82,7 +57,7 @@ export function ClassForm({ gymId, trainers, onSuccess }: ClassFormProps) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Cupo máximo</label>
           <input
@@ -132,12 +107,29 @@ export function ClassForm({ gymId, trainers, onSuccess }: ClassFormProps) {
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Descripción (opcional)</label>
+        <textarea
+          name="description"
+          rows={2}
+          placeholder="Descripción de la clase..."
+          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+        />
+      </div>
+
       <button
         type="submit"
-        disabled={submitting}
-        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white rounded-xl font-semibold transition-colors"
+        disabled={pending}
+        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
       >
-        {submitting ? "Creando..." : "Crear clase"}
+        {pending ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Creando...
+          </>
+        ) : (
+          "Crear clase"
+        )}
       </button>
     </form>
   )
