@@ -52,6 +52,25 @@ export function MembersTable({ members, onSuspend }: MembersTableProps) {
     )
   })
 
+  // Empty state: sin socios registrados en absoluto
+  if (members.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="text-4xl mb-3">👤</div>
+          <p className="text-slate-600 font-medium mb-1">Todavía no hay socios registrados</p>
+          <p className="text-sm text-slate-400 mb-5">Registrá tu primer socio para empezar a gestionar el gimnasio</p>
+          <Link
+            href="/dashboard/members/new"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors"
+          >
+            + Registrar primer socio
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -79,7 +98,7 @@ export function MembersTable({ members, onSuspend }: MembersTableProps) {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-8 text-slate-400">
-                  No hay socios que coincidan con la búsqueda
+                  No hay socios que coincidan con &quot;{search}&quot;
                 </td>
               </tr>
             ) : (
@@ -114,7 +133,7 @@ export function MembersTable({ members, onSuspend }: MembersTableProps) {
                         href={`/dashboard/members/${member.id}`}
                         className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
                       >
-                        Ver perfil
+                        Ver detalle
                       </Link>
                       {member.status === MemberStatus.ACTIVE && onSuspend && (
                         <button
