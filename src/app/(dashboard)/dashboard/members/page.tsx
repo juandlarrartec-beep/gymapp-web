@@ -25,17 +25,17 @@ export default async function MembersPage() {
   const totalActive = members.filter((m) => m.status === MemberStatus.ACTIVE).length
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Socios</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Socios</h1>
           <p className="text-sm text-slate-400 mt-1">
             {members.length} total · {totalActive} activos
           </p>
         </div>
         <Link
           href="/dashboard/members/new"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors"
+          className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors min-h-[44px] flex items-center"
         >
           + Nuevo socio
         </Link>

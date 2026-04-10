@@ -32,7 +32,7 @@ export default async function ChurnPage() {
   const lastCalculated = scores[0]?.calculatedAt ?? null
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl">
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">

@@ -1,6 +1,6 @@
 export default function DashboardLoading() {
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="h-8 w-40 bg-slate-200 rounded animate-pulse mb-6" />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (

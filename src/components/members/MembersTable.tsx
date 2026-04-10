@@ -244,8 +244,73 @@ export function MembersTable({ members, plans = [] }: MembersTableProps) {
         </button>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-white rounded-xl border overflow-hidden">
+      {/* Vista mobile — cards apiladas (ocultas en md+) */}
+      <div className="md:hidden space-y-2">
+        {paginated.length === 0 ? (
+          <div className="bg-white rounded-xl border py-10 text-center text-slate-400">
+            <UserCircle className="w-8 h-8 mx-auto mb-2 text-slate-200" />
+            No hay socios que coincidan con los filtros
+          </div>
+        ) : (
+          paginated.map((member) => (
+            <div key={member.id} className="bg-white rounded-xl border px-4 py-3 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold shrink-0">
+                {getInitials(member.firstName, member.lastName)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-slate-900 truncate">
+                  {member.firstName} {member.lastName}
+                </div>
+                <div className="text-xs text-slate-400 truncate">{member.membershipPlan?.name ?? "Sin plan"}</div>
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span
+                  className={clsx(
+                    "inline-flex px-2 py-0.5 rounded-full text-xs font-medium",
+                    STATUS_CLASS[member.status]
+                  )}
+                >
+                  {STATUS_LABELS[member.status]}
+                </span>
+                <Link
+                  href={`/dashboard/members/${member.id}`}
+                  className="text-indigo-600 hover:text-indigo-800 text-xs font-medium min-h-[44px] flex items-center"
+                >
+                  Ver
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Paginación mobile */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-1 py-2">
+            <p className="text-xs text-slate-500">
+              {filtered.length} socios · {currentPage}/{totalPages}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Vista desktop — tabla (oculta en mobile) */}
+      <div className="hidden md:block bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b">
             <tr>

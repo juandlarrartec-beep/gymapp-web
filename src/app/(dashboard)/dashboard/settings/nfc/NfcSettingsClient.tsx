@@ -54,7 +54,7 @@ export default function NfcSettingsClient({ gym }: Props) {
 
   if (gym.plan !== "PRO") {
     return (
-      <div className="p-8 max-w-2xl">
+      <div className="p-4 md:p-8 max-w-2xl">
         <h1 className="text-2xl font-bold mb-2">Control de acceso NFC</h1>
         <p className="text-slate-500 mb-6">
           Permite que tus socios accedan al gym tocando su celular en el lector.
@@ -103,7 +103,7 @@ export default function NfcSettingsClient({ gym }: Props) {
   }
 
   return (
-    <div className="p-8 max-w-2xl space-y-8">
+    <div className="p-4 md:p-8 max-w-2xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold mb-1">Control de acceso NFC</h1>
         <p className="text-slate-500 text-sm">

@@ -78,7 +78,7 @@ export default async function MemberProfilePage({
   if (!member) notFound()
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 md:p-8 max-w-5xl">
       <Link href="/dashboard/members" className="text-slate-400 hover:text-slate-600 text-sm mb-6 block">
         ← Socios
       </Link>

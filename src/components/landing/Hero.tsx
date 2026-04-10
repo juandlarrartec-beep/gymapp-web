@@ -56,7 +56,7 @@ export function Hero() {
           variants={fadeUp}
           initial="hidden"
           animate="visible"
-          className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.08] tracking-tight"
+          className="text-4xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.08] tracking-tight"
         >
           <span className="text-white">El software que hace</span>
           <br />
@@ -122,12 +122,12 @@ export function Hero() {
           </span>
         </motion.div>
 
-        {/* Dashboard mockup flotando */}
+        {/* Dashboard mockup flotando — oculto en mobile pequeño para no romper layout */}
         <motion.div
           variants={floatVariant}
           initial="initial"
           animate="animate"
-          className="mt-8 w-full max-w-4xl"
+          className="mt-8 w-full max-w-4xl hidden sm:block"
         >
           <motion.div
             custom={5}

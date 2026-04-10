@@ -38,7 +38,7 @@ export default async function ClassDetailPage({ params }: Props) {
   const isScheduled = cls.status === "SCHEDULED"
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <Link
         href="/dashboard/classes"
         className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors"

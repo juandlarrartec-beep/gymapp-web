@@ -42,7 +42,7 @@ export default function SeatsClient({ gym }: Props) {
 
   if (gym.plan !== "PRO") {
     return (
-      <div className="p-8 max-w-2xl">
+      <div className="p-4 md:p-8 max-w-2xl">
         <h1 className="text-2xl font-bold mb-2">Multi-sede</h1>
         <p className="text-slate-500 mb-6">
           Gestioná múltiples sedes desde un solo panel.
@@ -151,7 +151,7 @@ export default function SeatsClient({ gym }: Props) {
   }
 
   return (
-    <div className="p-8 max-w-2xl space-y-6">
+    <div className="p-4 md:p-8 max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1">Sedes</h1>

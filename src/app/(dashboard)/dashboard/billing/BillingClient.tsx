@@ -46,7 +46,7 @@ export default function BillingClient({ gym, planFeatures, planOrder, nextPlan }
   }
 
   return (
-    <div className="p-8 max-w-3xl space-y-8">
+    <div className="p-4 md:p-8 max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold mb-1">Facturación y plan</h1>
         <p className="text-slate-500 text-sm">

@@ -41,7 +41,7 @@ export default function BrandingClient({ gym }: Props) {
 
   if (gym.plan !== "PRO") {
     return (
-      <div className="p-8 max-w-2xl">
+      <div className="p-4 md:p-8 max-w-2xl">
         <h1 className="text-2xl font-bold mb-2">Marca personalizada</h1>
         <p className="text-slate-500 mb-6">
           Personalizá el nombre, logo y colores de tu app.
@@ -133,7 +133,7 @@ export default function BrandingClient({ gym }: Props) {
   }
 
   return (
-    <div className="p-8 max-w-3xl space-y-8">
+    <div className="p-4 md:p-8 max-w-3xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold mb-1">Marca personalizada</h1>
         <p className="text-slate-500 text-sm">

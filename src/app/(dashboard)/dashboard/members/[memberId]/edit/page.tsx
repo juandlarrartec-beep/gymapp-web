@@ -35,7 +35,7 @@ export default async function EditMemberPage({
   if (!member) notFound()
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 md:p-8 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
         <Link
           href={`/dashboard/members/${memberId}`}

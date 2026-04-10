@@ -65,7 +65,7 @@ export default async function RoutineDetailPage({ params, searchParams }: PagePr
   const isEditMode = edit === "1"
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>

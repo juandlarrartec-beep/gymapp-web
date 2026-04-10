@@ -66,7 +66,7 @@ export default async function PaymentsPage() {
     .reduce((acc, p) => acc + p.amount, 0)
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Pagos</h1>

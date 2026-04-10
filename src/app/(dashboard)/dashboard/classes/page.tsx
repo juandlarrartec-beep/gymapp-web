@@ -40,7 +40,7 @@ export default async function ClassesPage() {
   )
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Clases</h1>
